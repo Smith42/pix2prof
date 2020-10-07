@@ -1,6 +1,6 @@
 # Pix2Prof: deep learning for the extraction of useful sequential information from galaxy imagery
 
-<img src="docs/p2p_new.png", width=200>
+<img src="docs/p2p_new.png" width=200>
 
 This repository is the official implementation of
 [Pix2Prof](https://arxiv.org/abs/2010.00622). 
@@ -54,11 +54,11 @@ You can download the pretrained model used in the paper here:
 
 Here is a random selection of predictions from the test set:
 
-<img src="docs/sbs.png", width=200>
+<img src="docs/sbs.png" width=200>
 
 Here is the summary statistics plot from the paper:
 
-<img src="docs/errors_mag_arcsec.png", width=200>
+<img src="docs/errors_mag_arcsec.png" width=200>
 
 ## Contributing
 

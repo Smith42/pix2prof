@@ -26,7 +26,3 @@ def plot_validation_set(rootdir):
         plt.tight_layout()
         plt.savefig("{}/profiles-{}.png".format(rootdir, batch))
         plt.close()
-
-if __name__ == "__main__":
-     plot_validation_set("./logs/testytesttest/0188/")
-    

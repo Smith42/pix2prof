@@ -48,7 +48,7 @@ Where ``gals.txt`` is a textfile listing a list of galaxy names.
 
 You can download the pretrained model used in the paper here:
 
-- [SDSS Pix2Prof](models/model.pth)
+[![SDSS Pix2Prof](https://zenodo.org/badge/DOI/10.5281/zenodo.4072941.svg)](https://doi.org/10.5281/zenodo.4072941)
 
 ## Results
 

@@ -3,9 +3,7 @@
 <img src="docs/p2p_new.png" width=600>
 
 This repository is the official implementation of
-[Pix2Prof](https://arxiv.org/abs/2010.00622). 
-
-The paper is available at the link above, or [here](docs/pix2prof.pdf).
+[Pix2Prof](https://arxiv.org/abs/2010.00622).
 
 The model as trained produces a surface brightness profile from an unprocessed
 galaxy image from the SDSS in either the g, r, or i bands. With a throughput

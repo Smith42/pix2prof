@@ -19,8 +19,10 @@ def plot_validation_set(rootdir):
         f, axs = plt.subplots(6, 6, sharey=True, sharex=True, figsize=(20, 20))
         for fi, p, y, ax in zip(fis, ps, ys, axs.ravel()):
             ax.set_title(fi[:-6])
-            ax.plot(y, label="Target")
-            ax.plot(p, label="Prediction")
+            ax.plot(y[0], label="Target angle")
+            ax.plot(p[0], label="Prediction angle")
+            ax.plot(y[1], label="Target ellip")
+            ax.plot(p[1], label="Prediction ellip")
 
         axs[0, 0].legend()
         plt.tight_layout()

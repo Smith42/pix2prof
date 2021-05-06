@@ -30,7 +30,7 @@ from resnet import ResNet18
 from grunet import GRUNet
 
 # Global vars
-SOS_TOKEN = torch.full((1, 1, 1), 0.0)
+SOS_TOKEN = torch.full((1, 1, 2), 0.0)
 SKY = 30.0
 MAX_LENGTH = 1024
 
@@ -50,14 +50,13 @@ def mmn(ar, mini=2.0, maxi=30.0):
 def get_im(fi, width=256):
     """
     Get and augment galaxy image FITS file given a file name.
-    Also get the corresponding SB profile.
+    Also get the corresponding RA/ellipse profile.
     """
     ch = fi[1]
     fi = fi[0]
     
     galaxy_fi = "./data/gals/{}-{}.fits".format(fi, ch)
-    profile_fi = "./data/sbs_gri_noise/{}_{}.txt".format(fi, ch)
-    #profile_fi = "./data/sbs_gri_30.0/{}_{}.txt".format(fi, ch)
+    profile_fi = "./data/ra_deg/{}.txt".format(fi)
 
     with fits.open(galaxy_fi) as hdul:
         galaxy = hdul[0].data
@@ -90,14 +89,14 @@ def im_generator(f_lst, batch_size=1):
          galaxy, profile = zip(*[get_im(random.choice(f_lst), width) for _ in range(batch_size)])
          galaxy = torch.Tensor(galaxy).to(cuda)
          profile = torch.Tensor(profile).to(cuda)
-         
+
          yield galaxy, profile
 
 def train(galaxy, gt_profile, encoder, decoder, encoder_op, decoder_op, criterion):
     encoder_op.zero_grad()
     decoder_op.zero_grad()
 
-    profile_length = gt_profile.size(1)
+    profile_length = gt_profile.shape[-1]
 
     # Encode the galaxy image to z (== h0)
     galaxy_enc = encoder(galaxy)
@@ -116,21 +115,23 @@ def train(galaxy, gt_profile, encoder, decoder, encoder_op, decoder_op, criterio
         # Teacher forcing will feed the GT as the next input
         for di in range(profile_length):
             decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-            loss = loss + criterion(decoder_output.squeeze(), gt_profile[:, di].squeeze())
-            decoder_input = gt_profile[:, di:di+1].unsqueeze(0)
+            loss = loss + criterion(decoder_output.squeeze(), gt_profile[:, :, di].squeeze())
+            # slight spaghetti here, TODO check what's going on...
+            decoder_input = np.swapaxes(gt_profile[:, :, di:di+1], 1, 2)
 
     else:
         profile = []
-        # No teacher forcing; use decoder output as input until sky magnitude (EOS threshold) reached (27.5)
+        # No teacher forcing
         for di in range(profile_length):
             decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-            loss = loss + criterion(decoder_output.squeeze(), gt_profile[:, di].squeeze())
+            loss = loss + criterion(decoder_output.squeeze(), gt_profile[:, :, di].squeeze())
 
             decoder_input = decoder_output.detach().unsqueeze(0)
-            profile.append(decoder_output.item())
+            profile.append([decoder_output.squeeze()[0].item(),
+                            decoder_output.squeeze()[1].item()])
 
             # If we hit background sky break the loop
-            if len(profile) > 100 and np.std(profile[-100:-1]) <= 0.01:
+            if len(profile) > 100 and np.all(np.std(profile[-100:-1], axis=0) <= 0.01):
                 break
 
     loss.backward()
@@ -153,14 +154,17 @@ def evaluate(encoder, decoder, galaxy, max_length=MAX_LENGTH):
             decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
 
             # If we hit background sky break the loop
-            if len(profile) > 100 and np.std(profile[-100:-1]) <= 0.01:
-                profile.append(decoder_output.item())
+            if len(profile) > 100 and np.all(np.std(profile[-100:-1], axis=0) <= 0.01):
+                profile.append([decoder_output.squeeze()[0].item(),
+                                decoder_output.squeeze()[1].item()])
                 break
             else:
-                profile.append(decoder_output.item())
+                profile.append([decoder_output.squeeze()[0].item(),
+                                decoder_output.squeeze()[1].item()])
 
             decoder_input = decoder_output.detach().unsqueeze(0)
 
+        profile = np.swapaxes(profile, 0, 1)
         return torch.Tensor(profile)
 
 def validate(f_lst, encoder, decoder, epoch, criterion, logdir=None):
@@ -177,8 +181,8 @@ def validate(f_lst, encoder, decoder, epoch, criterion, logdir=None):
 
         y_lst.append(profile.cpu().numpy())
         p_lst.append(p_profile.numpy())
-        min_length = list(min((profile.squeeze().shape, p_profile.shape)))[0]
-        loss = criterion(p_profile[:min_length], profile[:min_length])
+        min_length = min((profile.squeeze().shape[1], p_profile.squeeze().shape[1]))
+        loss = criterion(p_profile[:, :min_length], profile[:, :min_length])
         losses.append(loss.item())
 
     print("Validation:", np.mean(losses), np.std(losses))
@@ -240,15 +244,15 @@ if __name__ == "__main__":
     chs = ("g", "r", "i")
     valid_set = [(fi, ch) for fi, ch in zip(np.repeat(valid_set, len(chs)), itertools.cycle(chs)) 
                  if isfile("./data/gals/{}-{}.fits".format(fi, ch))
-                 and isfile("./data/sbs_gri_30.0/{}_{}.txt".format(fi, ch))]
+                 and isfile("./data/ra_deg/{}.txt".format(fi))]
     training_set = [(fi, ch) for fi, ch in zip(np.repeat(training_set, len(chs)), itertools.cycle(chs)) 
                     if isfile("./data/gals/{}-{}.fits".format(fi, ch))
-                    and isfile("./data/sbs_gri_30.0/{}_{}.txt".format(fi, ch))]
+                    and isfile("./data/ra_deg/{}.txt".format(fi))]
                     
 
     # Init Pix2Prof and load checkpoint if asked
     encoder = ResNet18(num_classes=args.encoding_len).to(cuda)
-    decoder = GRUNet(input_dim=1, hidden_dim=args.encoding_len, output_dim=1, n_layers=3).to(cuda)
+    decoder = GRUNet(input_dim=2, hidden_dim=args.encoding_len, output_dim=2, n_layers=3).to(cuda)
     criterion = nn.MSELoss()
     encoder_op = optim.Adam(encoder.parameters(), lr=0.0002)
     decoder_op = optim.Adam(decoder.parameters(), lr=0.0002)

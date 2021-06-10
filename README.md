@@ -50,6 +50,15 @@ You can download the pretrained model used in the paper here:
 
 [![SDSS Pix2Prof](https://zenodo.org/badge/DOI/10.5281/zenodo.4072941.svg)](https://doi.org/10.5281/zenodo.4072941)
 
+If you want to use the pretrained model to infer your dataset, download the
+checkpoint to your working directory and run:
+
+```eval_ckpt
+python eval.py ./gals.txt pix2prof_2020-10-08.pth
+```
+
+Where ``gals.txt`` is a textfile listing a list of galaxy names.
+
 ## Results
 
 Here is a random selection of predictions from the test set:
